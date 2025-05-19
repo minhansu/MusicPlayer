@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react-swc'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: "https://ui.tad.woa.com/web/minna/3d-particle-player/"
+  base: "https://suminhan.cn/3d-particle-player/"
 })

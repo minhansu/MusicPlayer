@@ -1,6 +1,7 @@
 //@ts-nocheck
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
+import axios from 'axios'; // 导入axios
 import './style/index.css'
 import './style/atomic.css'
 import './style/variable.css'
@@ -8,11 +9,34 @@ import './style/variable.css'
 const AudioParticleVisualizer = () => {
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [pause, setPause] = useState<boolean>(false);
-  const [input, setInput] = useState<string>('');
+  // const [input, setInput] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  // 添加musicList状态
+  const [musicList, setMusicList] = useState<Array<{id: string, name: string, author: string, src: string}>>([]);
+  
+  // 从远端获取音乐列表数据
+  useEffect(() => {
+    const fetchMusicList = async () => {
+      try {
+        // 替换为实际的API地址
+        const response = await axios.get('./data.json');
+        setMusicList(response.data);
+      } catch (error) {
+        console.error('获取音乐列表失败:', error);
+        // 设置默认音乐列表作为后备
+        setMusicList([
+          { id: '1', name: '稻香', author: '周杰伦', src: '/music/daoxiang.mp3' },
+          { id: '2', name: '小半', author: '陈粒', src: '/music/xiaoban.mp3' },
+          { id: '3', name: '给电影人的情书', author: '蔡琴', src: '/music/geidianyingrendeqingshu.mp3' }
+        ]);
+      }
+    };
+    
+    fetchMusicList();
+  }, []);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -122,7 +146,9 @@ const AudioParticleVisualizer = () => {
       }
       audioContext.close();
       renderer.dispose();
-      containerRef.current && containerRef.current.removeChild(renderer.domElement);
+      if (containerRef.current) {
+        containerRef.current.removeChild(renderer.domElement);
+      }
     };
   }, [audioUrl]);
 
@@ -137,21 +163,14 @@ const AudioParticleVisualizer = () => {
       setPause(!pause);
     }
   };
-
-  const musicList = [
-    { id: '1', name: '稻香', author: '周杰伦', src: './music/daoxiang.mp3' },
-    { id: '2', name: '黑夜', author: '陈粒', src: './music/heiye.mp3' },
-    { id: '3', name: '小半', author: '陈粒', src: './music/xiaoban.mp3' },
-    { id: '4', name: '给电影人的情书', author: '蔡琴', src: './music/geidianyingrendeqingshu.mp3' }
-  ]
+  
   const [curMusic, setCurMusic] = useState('');
   useEffect(() => {
-    if (!curMusic) return;
-    const curMusicSrc = musicList?.filter(i => i.id === curMusic)[0].src;
+    const curMusicSrc = musicList?.filter(i => i.id === curMusic)[0]?.src;
     if (curMusicSrc) {
       setAudioUrl(curMusicSrc);
     }
-  }, [curMusic]);
+  }, [curMusic, musicList]); // 添加musicList作为依赖
 
   const [uploadLoading, setUploadLoading] = useState<boolean>(false)
   const [uploadAudioName, setUploadAudioName] = useState<string>('')
@@ -160,6 +179,7 @@ const AudioParticleVisualizer = () => {
     setUploadLoading(true)
     e.preventDefault();
     if (file) {
+      setCurMusic('')
       setUploadAudioName(file.name)
       let reader = new FileReader();
       reader.readAsDataURL(file);
@@ -184,11 +204,11 @@ const AudioParticleVisualizer = () => {
       <div className={'absolute flex items-center gap-8 color-gray-3 fs-12 noWrap'} style={{ top: '12px', left: '50%', transform: 'translateX(-50%)' }} onClick={e => e.stopPropagation()}>
         <label
           className="file-input"
-          onDragOver={(e: any) => {
+          onDragOver={(e: React.DragEvent<HTMLLabelElement>) => {
             setDrag(true);
             e.preventDefault();
           }}
-          onDrop={(e: any) => handleChange(e, e.dataTransfer.files[0])}
+          onDrop={(e: React.DragEvent<HTMLLabelElement>) => handleChange(e, e.dataTransfer.files[0])}
           onDragLeave={(e) => { e.stopPropagation(); setDrag(false) }}
         >
           {uploadLoading ? '上传中' : <>
@@ -198,13 +218,15 @@ const AudioParticleVisualizer = () => {
           </>}
           <input accept=".mp3" type="file" onChange={e => handleChange(e, e.target.files[0])} style={{ backgroundColor: 'transparent', border: 'none' }}></input>
         </label>
-        {/* 或 <input className="text-input" type='text' placeholder={'输入链接'} value={input} onChange={e => { setInput(e.target.value) }} />
+       {/* 或 <input className="text-input" type='text' placeholder={'输入链接'} value={input} onChange={e => { setInput(e.target.value) }} />
         <div className="check-button" onClick={() => {
-          input && input.includes('.mp3') && setAudioUrl(input);
+          if (input && input.includes('.mp3')) {
+            setAudioUrl(input);
+          }
         }
         }>
           <svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M43 11L16.875 37L5 25.1818" stroke="rgba(255,255,255,0.8)" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        </div> 来上传音频 */}
+        </div> 来上传音频*/}
       </div>
     </div>
     {loading && <div className="loading absolute-center"></div>}
