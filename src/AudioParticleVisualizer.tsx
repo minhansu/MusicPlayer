@@ -6,6 +6,11 @@ import './style/index.css'
 import './style/atomic.css'
 import './style/variable.css'
 
+const initMusicList = [
+  { id: '1', name: '稻香', author: '周杰伦', src: 'https://suminhan.cn/music/daoxiang.mp3' },
+  { id: '2', name: '小半', author: '陈粒', src: '/music/xiaoban.mp3' },
+  { id: '3', name: '给电影人的情书', author: '蔡琴', src: '/music/geidianyingrendeqingshu.mp3' }
+]
 const AudioParticleVisualizer = () => {
   const [audioUrl, setAudioUrl] = useState<string>('');
   const [pause, setPause] = useState<boolean>(false);
@@ -14,6 +19,7 @@ const AudioParticleVisualizer = () => {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
+  const [alertMsg, setAlertMsg] = useState<string>('');
   // 添加musicList状态
   const [musicList, setMusicList] = useState<Array<{id: string, name: string, author: string, src: string}>>([]);
   
@@ -23,15 +29,16 @@ const AudioParticleVisualizer = () => {
       try {
         // 替换为实际的API地址
         const response = await axios.get('./data.json');
-        setMusicList(response.data);
+        if(response.data&&Array.isArray(response.data)){
+          setMusicList(response.data);
+        }else{
+          setMusicList(initMusicList);
+        }
+        
       } catch (error) {
         console.error('获取音乐列表失败:', error);
         // 设置默认音乐列表作为后备
-        setMusicList([
-          { id: '1', name: '稻香', author: '周杰伦', src: '/music/daoxiang.mp3' },
-          { id: '2', name: '小半', author: '陈粒', src: '/music/xiaoban.mp3' },
-          { id: '3', name: '给电影人的情书', author: '蔡琴', src: '/music/geidianyingrendeqingshu.mp3' }
-        ]);
+        setMusicList(initMusicList);
       }
     };
     
@@ -40,8 +47,6 @@ const AudioParticleVisualizer = () => {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    setLoading(true);
-
     // 初始化Three.js场景
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -93,6 +98,28 @@ const AudioParticleVisualizer = () => {
     if (audioUrl) {
       const audioElement = new Audio(audioUrl);
       audioElement.loop = true;
+      
+      // 添加错误处理，当音频无法加载时显示提示
+      audioElement.addEventListener('error', () => {
+        setAlertMsg('未找到音频');
+        setLoading(false); // 加载失败时关闭加载状态
+        
+        // 2秒后自动隐藏提示
+        setTimeout(() => {
+          setAlertMsg('');
+        }, 1000);
+      });
+      
+      // 添加加载成功处理，清除错误信息
+      audioElement.addEventListener('loadeddata', () => {
+        setAlertMsg('');
+      });
+      
+      // 添加播放开始事件监听器，当音频开始播放时关闭loading状态
+      audioElement.addEventListener('playing', () => {
+        setLoading(false);
+      });
+      
       audioElementRef.current = audioElement;
       const source = audioContext.createMediaElementSource(audioElement);
       source.connect(analyser);
@@ -102,7 +129,6 @@ const AudioParticleVisualizer = () => {
         audioElement.play();
       }
     }
-    setLoading(false);
 
     // 动画循环
     const animate = () => {
@@ -135,7 +161,7 @@ const AudioParticleVisualizer = () => {
     };
 
     animate();
-
+    
     // 清理函数
     return () => {
       if (animationFrameRef.current) {
@@ -179,6 +205,7 @@ const AudioParticleVisualizer = () => {
     setUploadLoading(true)
     e.preventDefault();
     if (file) {
+      setLoading(true);
       setCurMusic('')
       setUploadAudioName(file.name)
       let reader = new FileReader();
@@ -189,6 +216,8 @@ const AudioParticleVisualizer = () => {
     }
   };
 
+  useEffect(()=> console.log(loading),[loading]
+  )
   return <div className={'relative overflow-hidden'} style={{ width: '100vw', height: '100vh' }}>
 
     <div className={'absolute flex column fs-12 fw-400'} style={{ top: 24, left: 24, zIndex: 10 }}>
@@ -196,7 +225,8 @@ const AudioParticleVisualizer = () => {
         musicList?.map((item) => <div key={item.id}
           onClick={(e) => {
             e.stopPropagation();
-            setCurMusic(item.id)
+            setCurMusic(item.id);
+            setLoading(true);
           }} className={`${curMusic === item.id ? 'colorWhite' : 'color-gray-4'} py-4 cursor-pointer`}>{item.name} - {item.author}</div>)
       }
     </div>
@@ -229,7 +259,8 @@ const AudioParticleVisualizer = () => {
         </div> 来上传音频*/}
       </div>
     </div>
-    {loading && <div className="loading absolute-center"></div>}
+    {(loading) && <div className="absolute-center" style={{color:'rgba(255,255,255,0.6)'}}>加载中...</div>}
+    <div className="absolute-center" style={{color:'rgba(255,255,255,0.6)',opacity:alertMsg?1:0,transition: 'opacity 0.2s linear'}}>{alertMsg}</div>
     <div ref={containerRef} className={'width-100 height-100'} />
   </div>;
 };
